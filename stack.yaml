@@ -1,0 +1,91 @@
+version: '3'
+
+services:
+  authentication_db_server:
+    image: mysql
+    environment:
+      - MYSQL_ROOT_PASSWORD=root
+    volumes:
+      - auth_db_volume:/var/lib/mysql
+    networks:
+      - auth_network
+  admin_db_server:
+    image: mysql
+    environment:
+      - MYSQL_ROOT_PASSWORD=root
+    volumes:
+      - admin_db_volume:/var/lib/mysql
+    networks:
+      - daemon_network
+      - admin_network
+  redis_server:
+    image: redis
+    networks:
+      - daemon_network
+      - voting_network
+  authentication:
+    image: authentication_image
+    networks:
+      - auth_network
+    ports:
+      - 7001:7000
+    environment:
+      - DATABASE_URL=authentication_db_server
+  admin:
+    image: admin_image
+    networks:
+      - admin_network
+    ports:
+      - 7002:7000
+    environment:
+      - DATABASE_URL=admin_db_server
+  voting:
+    image: voting_image
+    networks:
+      - voting_network
+    ports:
+      - 7003:7000
+    environment:
+      - REDIS_HOST=redis_server
+    deploy:
+      replicas: 3
+  daemon:
+    image: daemon_image
+    networks:
+      - daemon_network
+    environment:
+      - REDIS_HOST=redis_server
+      - DATABASE_URL=admin_db_server
+  admin_db_migrate:
+    image: admin_db_migrate_image
+    networks:
+      - admin_network
+    environment:
+      - DATABASE_URL=admin_db_server
+  auth_db_migrate:
+    image: auth_db_migrate_image
+    environment:
+      - DATABASE_URL=authentication_db_server
+    networks:
+      - auth_network
+  adminer:
+    image: adminer
+    networks:
+      - admin_network
+      - auth_network
+    ports:
+      - 8080:8080
+volumes:
+  auth_db_volume:
+  admin_db_volume:
+
+
+networks:
+  voting_network:
+    driver: overlay
+  admin_network:
+    driver: overlay
+  auth_network:
+    driver: overlay
+  daemon_network:
+    driver: overlay
